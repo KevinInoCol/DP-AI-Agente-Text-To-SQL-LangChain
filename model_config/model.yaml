@@ -1,0 +1,27 @@
+# ============================================
+# Configuración del LLM y de la memoria del agente
+# Autor: Ing. Kevin Inofuente Colque - DataPath
+# ============================================
+# Config pura: sin código y sin prompt (el prompt vive en prompt/).
+# Solo claves que el código realmente lee (agent.py).
+
+llm:
+  provider: openai
+  model: gpt-4.1
+  temperature: 0
+
+memory:
+  retention_days: 30      # descarta mensajes más viejos que esto
+  token_limit: 3000       # umbral que dispara el resumen
+  keep_messages: 20       # mensajes recientes que sobreviven al resumen
+  reengagement_hours: 6   # hueco a partir del cual el usuario "vuelve"
+
+subagentes:
+  graficos:               # subagentes/graficos/ — decide qué graficar
+    provider: openai
+    model: gpt-4.1
+    temperature: 0
+
+agent:
+  bot_name: DataBot
+  timezone: America/Lima  # para el contexto de fecha/hora del prompt

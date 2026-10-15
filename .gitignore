@@ -1,0 +1,28 @@
+# Secretos y credenciales
+.env
+.env.*
+!.env.example
+credentials/*
+!credentials/.gitkeep
+!credentials/README.txt
+*.json
+
+# Gráficos generados por el subagente
+graficos_generados/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# IDEs
+.vscode/
+.idea/
+
+# Sistema
+.DS_Store
+Thumbs.db

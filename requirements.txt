@@ -1,0 +1,35 @@
+# ============================================
+# Requirements - Agente base con LangChain v1
+# Autor: Ing. Kevin Inofuente Colque - DataPath
+# ============================================
+
+# LANGCHAIN v1
+langchain>=1.0.0
+langchain-openai              # GPT-4.1 + embeddings
+langchain-community           # Loaders (PyPDFLoader, TextLoader) para la ingesta
+langchain-text-splitters      # RecursiveCharacterTextSplitter
+
+# MEMORIA (PostgreSQL)
+langgraph-checkpoint-postgres # PostgresSaver: memoria del agente por thread_id
+psycopg[binary,pool]          # Driver PostgreSQL v3 + pool de conexiones
+
+# BASE DE CONOCIMIENTO (Qdrant)
+langchain-qdrant>=1.1,<2.0
+qdrant-client
+pypdf
+
+# BIGQUERY (tool consultar_bigquery)
+sqlalchemy>=2.0
+sqlalchemy-bigquery          # Dialecto BigQuery (incluye google-cloud-bigquery)
+sqlglot                      # Valida que el SQL del LLM sea solo lectura
+
+# SUBAGENTE DE GRÁFICOS
+matplotlib
+
+# ENTRYPOINT
+fastapi
+uvicorn
+
+# UTILIDADES
+python-dotenv
+pyyaml
