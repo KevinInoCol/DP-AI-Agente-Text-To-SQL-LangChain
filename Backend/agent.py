@@ -1,7 +1,7 @@
 """
 Orquestador del agente Text-to-SQL: ensambla LLM + prompt + tools + memoria.
 
-- Recursos pesados (LLMs, vector store, checkpointer, prompts, subagente) se
+- Recursos pesados (LLMs, checkpointer, prompts, subagente) se
   inicializan UNA vez en init_resources().
 - El agente se reconstruye por mensaje en build_agent(): es barato y permite
   que el prompt del turno dependa del hueco desde el último mensaje.
@@ -42,7 +42,7 @@ from langgraph.runtime import Runtime
 from chat_history import close_store, init_chat_history, ultimo_checkpoint_ts
 from estado import EstadoAgente
 from subagentes.graficos import init_subagente_graficos
-from tools import get_bigquery_tool, get_graficos_tool, get_retrieval_tool
+from tools import get_bigquery_tool, get_graficos_tool
 
 # ============================================
 # CONSTANTES
@@ -56,14 +56,13 @@ BLOQUE_RETOMA = """
 
 <Retoma_De_Conversacion>
 El usuario vuelve después de {horas} horas sin escribir. Salúdalo de nuevo
-brevemente y retoma con naturalidad. Antes de reafirmar cualquier dato del
-negocio que le diste antes, vuelve a verificarlo con buscar_base_conocimiento:
-puede haber cambiado.
+brevemente y retoma con naturalidad. Si vuelve sobre cifras que le diste
+antes, recuérdalas desde el historial; solo vuelve a consultar BigQuery si
+pide un dato nuevo o un periodo distinto.
 </Retoma_De_Conversacion>"""
 
 # Singletons de módulo: se llenan en init_resources()
 _llm = None
-_retrieval_tool = None
 _bigquery_tool = None
 _graficos_tool = None
 _checkpointer = None
@@ -82,7 +81,7 @@ def _cargar_yaml(ruta: str) -> dict:
 
 def init_resources() -> None:
     """Una vez al arrancar. Deja singletons de módulo."""
-    global _llm, _retrieval_tool, _bigquery_tool, _graficos_tool, _checkpointer
+    global _llm, _bigquery_tool, _graficos_tool, _checkpointer
     global _system_prompt, _memory_cfg, _agent_cfg
 
     model_cfg = _cargar_yaml(MODEL_CONFIG_PATH)
@@ -106,7 +105,6 @@ def init_resources() -> None:
     )
 
     _checkpointer = init_chat_history()
-    _retrieval_tool = get_retrieval_tool()
     _bigquery_tool = get_bigquery_tool()
     _graficos_tool = get_graficos_tool()
 
@@ -179,7 +177,7 @@ def build_agent(thread_id: str):
 
     return create_agent(
         model=_llm,
-        tools=[_bigquery_tool, _graficos_tool, _retrieval_tool],
+        tools=[_bigquery_tool, _graficos_tool],
         state_schema=EstadoAgente,
         checkpointer=_checkpointer,
         middleware=[

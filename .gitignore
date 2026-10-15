@@ -1,10 +1,10 @@
-# Secretos y credenciales
+# Secretos y credenciales (aplican en Backend/ y Frontend/)
 .env
 .env.*
 !.env.example
-credentials/*
-!credentials/.gitkeep
-!credentials/README.txt
+**/credentials/*
+!**/credentials/.gitkeep
+!**/credentials/README.txt
 *.json
 
 # Gráficos generados por el subagente
@@ -22,6 +22,9 @@ venv/
 # IDEs
 .vscode/
 .idea/
+
+# Streamlit: secretos locales
+**/.streamlit/secrets.toml
 
 # Sistema
 .DS_Store

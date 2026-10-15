@@ -1,7 +1,13 @@
 # Agente Text-to-SQL CitiBike (LangChain 1.x)
 
-Estructura según la skill `agent-project-structure` (ver `.claude/skills/`).
-Sin debounce: cada mensaje recibido se procesa como un turno.
+Dos aplicaciones:
+- `Backend/`: el agente (FastAPI). Estructura según la skill `agent-project-structure`
+  (ver `.claude/skills/`). Sin debounce: cada mensaje recibido se procesa como un turno.
+- `Frontend/`: interfaz de prueba en Streamlit. Solo habla con la API HTTP del Backend
+  (`POST /chat`, `GET /health`); nunca importa código de `Backend/`.
+
+Las rutas de la tabla de abajo son relativas a `Backend/`. Los comandos del Backend se
+ejecutan desde `Backend/` (los módulos se importan por nombre: `agent`, `tools`, ...).
 
 @.claude/rules/langchain-mcp-first.md
 
@@ -11,8 +17,6 @@ Sin debounce: cada mensaje recibido se procesa como un turno.
 |---|---|
 | Modelo, temperatura, límites de memoria | `model_config/model.yaml` |
 | Persona / reglas del agente | `prompt/system_prompt.yaml` (skill `agent-prompt-yaml-format`) |
-| Embeddings o colección de Qdrant | `vector_store.py` (fuente única) |
-| Ingesta de documentos | `RAG/rag.py` |
 | Nueva tool | `tools/<nombre>.py` + `tools/__init__.py` + `agent.build_agent()` + prompt |
 | Conexión a BigQuery (proyecto, dataset, tope de bytes) | `BigQuery/conexion.py` |
 | Validación / ejecución del SQL del agente | `tools/bigquery.py` |
@@ -20,7 +24,8 @@ Sin debounce: cada mensaje recibido se procesa como un turno.
 | Cómo se dibujan los gráficos | `subagentes/graficos/renderizado.py` |
 | Estado compartido entre tools | `estado.py` |
 | Esquema de la base (Postgres) | `migraciones_SQL/` |
-| Canal de entrada | `app.py` |
+| Canal de entrada (API) | `app.py` |
+| Interfaz de prueba | `../Frontend/app.py` |
 
 `agent.py` solo cambia para orquestación.
 

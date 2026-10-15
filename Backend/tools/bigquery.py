@@ -150,9 +150,6 @@ def get_bigquery_tool():
         promedios, rankings, tendencias por fecha, estaciones, duración de viajes,
         tipo de usuario, etc. Las columnas están en el system prompt.
 
-        No la uses para preguntas sobre políticas o procedimientos del negocio:
-        para eso está buscar_base_conocimiento.
-
         Reglas del SQL:
         - Solo SELECT / WITH. Nada de INSERT, UPDATE, DELETE, CREATE, DROP.
         - Nombre de tabla completo con backticks:

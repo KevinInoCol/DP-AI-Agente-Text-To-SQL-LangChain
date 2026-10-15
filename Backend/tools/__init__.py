@@ -2,7 +2,6 @@
 
 from tools.bigquery import ejecutar_consulta, get_bigquery_tool, validar_sql
 from tools.graficos import generar_graficos, get_graficos_tool
-from tools.retrieval import buscar_base_conocimiento, get_retrieval_tool
 
 __all__ = [
     "ejecutar_consulta",
@@ -10,6 +9,4 @@ __all__ = [
     "get_graficos_tool",
     "get_bigquery_tool",
     "validar_sql",
-    "buscar_base_conocimiento",
-    "get_retrieval_tool",
 ]

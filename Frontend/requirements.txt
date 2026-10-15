@@ -1,0 +1,7 @@
+# ============================================
+# Requirements - Frontend de prueba (Streamlit)
+# Autor: Ing. Kevin Inofuente Colque - DataPath
+# ============================================
+streamlit>=1.40
+requests
+python-dotenv
