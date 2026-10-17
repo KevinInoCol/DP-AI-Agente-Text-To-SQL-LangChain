@@ -5,6 +5,8 @@ Dos aplicaciones:
   (ver `.claude/skills/`). Sin debounce: cada mensaje recibido se procesa como un turno.
 - `Frontend/`: interfaz de prueba en Streamlit. Solo habla con la API HTTP del Backend
   (`POST /chat`, `GET /health`); nunca importa código de `Backend/`.
+- `Frontend-v2/`: la misma interfaz en React + Vite. Mismo contrato: solo la API HTTP,
+  vía el proxy `/api` de Vite (`BACKEND_URL` en `Frontend-v2/.env`), sin CORS en el Backend.
 
 Las rutas de la tabla de abajo son relativas a `Backend/`. Los comandos del Backend se
 ejecutan desde `Backend/` (los módulos se importan por nombre: `agent`, `tools`, ...).
@@ -25,7 +27,7 @@ ejecutan desde `Backend/` (los módulos se importan por nombre: `agent`, `tools`
 | Estado compartido entre tools | `estado.py` |
 | Esquema de la base (Postgres) | `migraciones_SQL/` |
 | Canal de entrada (API) | `app.py` |
-| Interfaz de prueba | `../Frontend/app.py` |
+| Interfaz de prueba | `../Frontend/app.py` (Streamlit), `../Frontend-v2/src/` (React) |
 
 `agent.py` solo cambia para orquestación.
 

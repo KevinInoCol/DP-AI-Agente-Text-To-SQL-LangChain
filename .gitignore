@@ -6,6 +6,8 @@
 !**/credentials/.gitkeep
 !**/credentials/README.txt
 *.json
+!Frontend-v2/package.json
+!Frontend-v2/package-lock.json
 
 # Gráficos generados por el subagente
 graficos_generados/
@@ -29,3 +31,7 @@ venv/
 # Sistema
 .DS_Store
 Thumbs.db
+
+# Node (Frontend-v2)
+node_modules/
+dist/
