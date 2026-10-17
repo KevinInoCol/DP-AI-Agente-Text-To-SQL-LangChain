@@ -1,0 +1,587 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arquitectura DataBot</title>
+<meta name="description" content="Arquitectura jerárquica del agente Text-to-SQL CitiBike: Streamlit + FastAPI en Cloud Run, LangChain 1.x, BigQuery, subagente de gráficos y memoria en PostgreSQL (Supabase).">
+<style>
+:root {
+  --bg: #f7f7f5;
+  --surface: #ffffff;
+  --surface-2: #f0f0ec;
+  --text: #1c1c1a;
+  --muted: #64645e;
+  --border: #d9d9d2;
+  --edge: #3a3a36;
+  --edge-soft: #8a8a82;
+  --accent: #2563eb;
+  --grid: #e8e8e2;
+  --code-bg: #efefea;
+  --person: #3f3f3c;
+  /* Paleta de la arquitectura (estilo draw.io) */
+  --blue-f: #dae8fc;   --blue-s: #6c8ebf;
+  --yel-f: #fff2cc;    --yel-s: #d6b656;
+  --gray-f: #f5f5f5;   --gray-s: #666666;
+  --red-f: #f8cecc;    --red-s: #b85450;
+  --grn-f: #d5e8d4;    --grn-s: #82b366;
+  --org-f: #ffe6cc;    --org-s: #d79b00;
+  --pur-f: #e1d5e7;    --pur-s: #9673a6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141413; --surface: #1d1d1b; --surface-2: #262624; --text: #ededea; --muted: #a3a39c;
+    --border: #3a3a36; --edge: #d4d4ce; --edge-soft: #85857e; --accent: #6b9bff; --grid: #23231f;
+    --code-bg: #262624; --person: #c9c9c3;
+    --blue-f: #1b2a40; --blue-s: #5f86c4;
+    --yel-f: #3a3215;  --yel-s: #c9a640;
+    --gray-f: #2a2a28; --gray-s: #9a9a94;
+    --red-f: #42201f;  --red-s: #d0726d;
+    --grn-f: #1f3520;  --grn-s: #79b35f;
+    --org-f: #40290d;  --org-s: #e0a325;
+    --pur-f: #33263a;  --pur-s: #ad8ac0;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141413; --surface: #1d1d1b; --surface-2: #262624; --text: #ededea; --muted: #a3a39c;
+  --border: #3a3a36; --edge: #d4d4ce; --edge-soft: #85857e; --accent: #6b9bff; --grid: #23231f;
+  --code-bg: #262624; --person: #c9c9c3;
+  --blue-f: #1b2a40; --blue-s: #5f86c4;
+  --yel-f: #3a3215;  --yel-s: #c9a640;
+  --gray-f: #2a2a28; --gray-s: #9a9a94;
+  --red-f: #42201f;  --red-s: #d0726d;
+  --grn-f: #1f3520;  --grn-s: #79b35f;
+  --org-f: #40290d;  --org-s: #e0a325;
+  --pur-f: #33263a;  --pur-s: #ad8ac0;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: .88em; }
+code { background: var(--code-bg); padding: .1em .35em; border-radius: 4px; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 32px 16px 64px; }
+header h1 { font-size: clamp(1.6rem, 3.5vw, 2.2rem); line-height: 1.2; margin: 0 0 .4rem; letter-spacing: -.01em; }
+header p { color: var(--muted); margin: 0 0 1rem; max-width: 70ch; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.chips li { font-size: .8rem; border: 1px solid var(--border); background: var(--surface); padding: 2px 10px; border-radius: 999px; color: var(--muted); }
+h2 { font-size: 1.3rem; margin: 3rem 0 .4rem; letter-spacing: -.005em; }
+h2 + p.lead { color: var(--muted); margin: 0 0 1.2rem; max-width: 75ch; }
+
+/* ---------- Diagrama ---------- */
+.figure { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 8px; overflow-x: auto; margin-top: 1.5rem; }
+.figure svg { display: block; width: 100%; min-width: 780px; height: auto; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: .78rem; color: var(--muted); padding: 8px 8px 4px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 14px; height: 10px; border-radius: 3px; display: inline-block; border: 1px solid; }
+.legend .ln { width: 22px; height: 0; border: 0; border-top: 2px solid var(--edge); border-radius: 0; }
+.legend .ln.thick { border-top-width: 3.5px; }
+.legend .ln.d { border-top-style: dashed; border-top-color: var(--edge-soft); }
+
+svg .gridbg { fill: url(#grid); }
+svg .node { cursor: pointer; }
+svg .node rect.box { stroke-width: 1.3; transition: stroke .25s, stroke-width .25s; }
+svg .node:hover rect.box { stroke-width: 2; }
+svg .node:focus { outline: none; }
+svg .node:focus-visible rect.box { stroke: var(--accent); stroke-width: 2.5; }
+svg .node.sel rect.box:first-of-type { stroke-width: 2.5; }
+svg .node.on rect.box { stroke: var(--accent); stroke-width: 3; }
+svg .node.off { opacity: .3; }
+svg .node, svg .edge, svg .lbl { transition: opacity .25s; }
+svg .k-blue rect.box { fill: var(--blue-f); stroke: var(--blue-s); }
+svg .k-yel  rect.box { fill: var(--yel-f);  stroke: var(--yel-s); }
+svg .k-gray rect.box { fill: var(--gray-f); stroke: var(--gray-s); }
+svg .k-red  rect.box { fill: var(--red-f);  stroke: var(--red-s); }
+svg .k-grn  rect.box { fill: var(--grn-f);  stroke: var(--grn-s); }
+svg .k-org  rect.box { fill: var(--org-f);  stroke: var(--org-s); }
+svg .k-pur  rect.box { fill: var(--pur-f);  stroke: var(--pur-s); }
+svg .k-person .body { fill: var(--person); }
+svg .k-person rect.box { fill: transparent; stroke: transparent; }
+svg .k-person.on .body { fill: var(--accent); }
+svg .container.on > rect.box { stroke: var(--accent); }
+svg .t { fill: var(--text); font: 600 12.5px ui-sans-serif, system-ui, sans-serif; }
+svg .s { fill: var(--text); opacity: .78; font: 11px ui-sans-serif, system-ui, sans-serif; }
+svg .s.code { font: 10.5px ui-monospace, "SF Mono", Menlo, monospace; opacity: .65; }
+svg .ttl { fill: var(--text); font: 600 15px ui-sans-serif, system-ui, sans-serif; }
+svg .edge { fill: none; stroke: var(--edge); stroke-width: 1.3; transition: stroke .25s, opacity .25s; }
+svg .edge.thick { stroke-width: 3; }
+svg .edge.dash { stroke: var(--edge-soft); stroke-dasharray: 5 4; }
+svg .edge.on { stroke: var(--accent); stroke-dasharray: 8 5; animation: flow .7s linear infinite; }
+svg .edge.off, svg .lbl.off { opacity: .2; }
+svg .lbl { fill: var(--text); font: 10.5px ui-sans-serif, system-ui, sans-serif; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+svg marker path { fill: var(--edge); }
+svg marker#arr-soft path { fill: var(--edge-soft); }
+svg marker#arr-on path { fill: var(--accent); }
+@keyframes flow { to { stroke-dashoffset: -13; } }
+@media (prefers-reduced-motion: reduce) { svg .edge.on { animation: none; } }
+
+/* ---------- Panel ---------- */
+.panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin-top: 16px; }
+@media (max-width: 860px) { .panel { grid-template-columns: minmax(0, 1fr); } }
+.panel > div { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; min-width: 0; }
+.panel h3 { margin: 8px 0 0; font-size: 1.05rem; }
+.panel .file { color: var(--muted); font-size: .8rem; word-break: break-word; }
+.panel p { margin: 8px 0 0; font-size: .92rem; }
+.panel ul { margin: 8px 0 0; padding-left: 1.1rem; font-size: .9rem; }
+.panel ul li { margin: .2rem 0; }
+.tag { display: inline-block; font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 2px 8px; border-radius: 4px; border: 1px solid; color: var(--text); }
+.stepper { display: flex; flex-direction: column; gap: 10px; }
+.stepper .row { display: flex; gap: 6px; align-items: center; }
+.stepper button { font: inherit; font-size: .85rem; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+.stepper button:hover { border-color: var(--muted); }
+.stepper button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.stepper .count { margin-left: auto; font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.progress { height: 4px; background: var(--surface-2); border-radius: 2px; overflow: hidden; }
+.progress div { height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+.step-title { font-weight: 600; font-size: .95rem; }
+.step-text { font-size: .9rem; min-height: 4.5em; }
+.hint { font-size: .8rem; color: var(--muted); }
+
+/* ---------- Tarjetas ---------- */
+.grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; border-top: 4px solid var(--k, var(--border)); }
+.card h3 { margin: 0 0 .35rem; font-size: 1rem; }
+.card .file { color: var(--muted); font-size: .78rem; margin-bottom: .5rem; }
+.card p, .card ul { margin: 0; font-size: .9rem; }
+.card ul { padding-left: 1.1rem; }
+.card .big { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; margin: .2rem 0 .3rem; }
+.card .big small { font-size: .85rem; font-weight: 500; color: var(--muted); }
+
+ol.barreras { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; counter-reset: b; }
+ol.barreras li { counter-increment: b; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px 12px 52px; position: relative; font-size: .92rem; }
+ol.barreras li::before { content: counter(b); position: absolute; left: 14px; top: 12px; width: 26px; height: 26px; border-radius: 50%; background: var(--red-f); border: 1px solid var(--red-s); color: var(--text); font-weight: 700; font-size: .85rem; display: grid; place-items: center; }
+ol.barreras b { display: block; }
+
+.callout { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--grn-s); border-radius: 10px; padding: 14px 16px; font-size: .93rem; }
+.callout p { margin: .3rem 0; }
+
+.tablewrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); background: var(--surface-2); }
+tr:last-child td { border-bottom: 0; }
+footer { margin-top: 3rem; font-size: .8rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Arquitectura del agente Text-to-SQL CitiBike</h1>
+  <p><b>DataBot</b> responde preguntas en lenguaje natural sobre los viajes de CitiBike NYC: escribe el SQL, lo valida, lo ejecuta en BigQuery, delega los gráficos en un subagente y recuerda la conversación en PostgreSQL.</p>
+  <ul class="chips">
+    <li>LangChain 1.x · <code>create_agent</code></li>
+    <li>LangGraph · PostgresSaver</li>
+    <li>OpenAI gpt-4.1</li>
+    <li>BigQuery · sqlglot</li>
+    <li>FastAPI · Streamlit</li>
+    <li>Cloud Run</li>
+    <li>Supabase</li>
+  </ul>
+</header>
+
+<h2>Arquitectura</h2>
+<p class="lead">Vista jerárquica: el orquestador arriba, sus tools debajo y, debajo de cada tool, lo que ejecuta. Haz clic en un componente para ver su detalle, o usa <b>Recorrido de un turno</b>.</p>
+
+<div class="figure">
+  <svg id="diagram" viewBox="0 0 1200 800" role="img" aria-label="Arquitectura jerárquica del agente Text-to-SQL">
+    <defs>
+      <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+        <path d="M20,0 H0 V20" fill="none" stroke="var(--grid)" stroke-width="1"/>
+      </pattern>
+      <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker>
+      <marker id="arr-soft" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker>
+      <marker id="arr-on" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker>
+    </defs>
+    <rect class="gridbg" x="0" y="0" width="1200" height="800"/>
+    <text class="ttl" x="790" y="30" text-anchor="middle">Proyecto 3: Agente IA Text-to-SQL</text>
+    <text class="ttl" x="790" y="50" text-anchor="middle" style="font-weight:500">BigQuery · CitiBike NYC</text>
+    <g id="back"></g>
+    <g id="edges"></g>
+    <g id="nodes"></g>
+  </svg>
+  <div class="legend">
+    <span><i style="background:var(--blue-f);border-color:var(--blue-s)"></i>Instancias (Cloud Run)</span>
+    <span><i style="background:var(--yel-f);border-color:var(--yel-s)"></i>Prompt y config</span>
+    <span><i style="background:var(--gray-f);border-color:var(--gray-s)"></i>LLM orquestador</span>
+    <span><i style="background:var(--red-f);border-color:var(--red-s)"></i>Tools</span>
+    <span><i style="background:var(--grn-f);border-color:var(--grn-s)"></i>Datos y resultados</span>
+    <span><i style="background:var(--org-f);border-color:var(--org-s)"></i>Subagente</span>
+    <span><i style="background:var(--pur-f);border-color:var(--pur-s)"></i>Memoria</span>
+    <span><i class="ln thick"></i>Petición / respuesta HTTP</span>
+    <span><i class="ln"></i>Llamada</span>
+    <span><i class="ln d"></i>Datos vía estado</span>
+  </div>
+</div>
+
+<div class="panel" aria-live="polite">
+  <div id="detail">
+    <span class="tag" id="d-tag"></span>
+    <h3 id="d-title"></h3>
+    <div class="file mono" id="d-file"></div>
+    <p id="d-text"></p>
+    <ul id="d-list"></ul>
+  </div>
+  <div class="stepper">
+    <div class="row">
+      <b style="font-size:.95rem">Recorrido de un turno</b>
+      <span class="count" id="s-count"></span>
+    </div>
+    <div class="progress"><div id="s-bar"></div></div>
+    <div class="step-title" id="s-title"></div>
+    <div class="step-text" id="s-text"></div>
+    <div class="row">
+      <button id="s-prev" aria-label="Paso anterior">◀</button>
+      <button id="s-play" class="primary">▶ Reproducir</button>
+      <button id="s-next" aria-label="Paso siguiente">▶</button>
+      <button id="s-reset" style="margin-left:auto">Ver todo</button>
+    </div>
+    <div class="hint">Teclado: ← → para avanzar, Esc para ver todo.</div>
+  </div>
+</div>
+
+<h2>Capas</h2>
+<p class="lead">Cada capa conoce solo la API pública de la siguiente. El Frontend nunca importa código del Backend; <code>app.py</code> no sabe nada de LLMs ni prompts.</p>
+<div class="grid">
+  <div class="card" style="--k:var(--blue-s)">
+    <h3>Instancias</h3>
+    <div class="file mono">Frontend/app.py · Backend/app.py</div>
+    <ul>
+      <li>Streamlit: cliente delgado, genera el <code>thread_id</code> y pinta respuesta, tools y gráficos.</li>
+      <li>FastAPI: <code>POST /chat</code> y <code>GET /health</code>; valida variables de entorno al arrancar.</li>
+      <li>Sin debounce: cada mensaje es un turno.</li>
+    </ul>
+  </div>
+  <div class="card" style="--k:var(--gray-s)">
+    <h3>LLM orquestador</h3>
+    <div class="file mono">agent.py · estado.py</div>
+    <ul>
+      <li><code>init_resources()</code> crea una vez LLM, prompts, checkpointer, tools y subagente.</li>
+      <li><code>build_agent()</code> se reconstruye por mensaje: barato, y el prompt depende del hueco desde el último mensaje.</li>
+      <li>Estado propio: <code>EstadoAgente</code>.</li>
+    </ul>
+  </div>
+  <div class="card" style="--k:var(--red-s)">
+    <h3>Tools</h3>
+    <div class="file mono">tools/bigquery.py · tools/graficos.py</div>
+    <ul>
+      <li><code>consultar_bigquery(sql)</code>: valida y ejecuta; devuelve ≤ 50 filas al modelo.</li>
+      <li><code>generar_graficos(instruccion)</code>: subagente como tool; toma los datos del estado.</li>
+    </ul>
+  </div>
+  <div class="card" style="--k:var(--org-s)">
+    <h3>Subagente de gráficos</h3>
+    <div class="file mono">subagentes/graficos/</div>
+    <ul>
+      <li>Decide (LLM, structured output → <code>PlanGraficos</code>), no dibuja.</li>
+      <li>Contexto aislado: solo un perfil de los datos, no la conversación.</li>
+      <li>El dibujo es código determinista (matplotlib): nunca inventa valores.</li>
+    </ul>
+  </div>
+  <div class="card" style="--k:var(--grn-s)">
+    <h3>Datos</h3>
+    <div class="file mono">BigQuery/conexion.py</div>
+    <ul>
+      <li><code>bigquery-public-data.new_york_citibike</code>, de solo lectura.</li>
+      <li>Los jobs se facturan al proyecto de la Service Account.</li>
+    </ul>
+  </div>
+  <div class="card" style="--k:var(--pur-s)">
+    <h3>Histórico de conversación</h3>
+    <div class="file mono">chat_history/ · migraciones_SQL/</div>
+    <ul>
+      <li>Checkpoints de LangGraph: estado completo por <code>thread_id</code>.</li>
+      <li><code>chat_log</code>: tabla plana para auditar con SQL.</li>
+      <li>PostgreSQL en Supabase (pooler).</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Cuatro barreras para el SQL del modelo</h2>
+<p class="lead">El SQL que escribe un LLM no es de confianza. <code>tools/bigquery.py</code> lo trata como entrada externa.</p>
+<ol class="barreras">
+  <li><b>Validación con sqlglot (dialecto BigQuery)</b>Una sola sentencia, solo consultas (<code>SELECT</code> / <code>WITH</code> / <code>UNION</code>) y solo tablas de <code>TABLAS_PERMITIDAS</code> dentro del proyecto y dataset permitidos.</li>
+  <li><b>Tope de bytes facturados</b><code>maximum_bytes_billed</code> = 2 GB por consulta: BigQuery rechaza el job antes de ejecutarlo y el agente recibe una pista para reformular.</li>
+  <li><b>Límite de filas</b>El modelo ve como máximo 50 filas; el estado guarda hasta 500 para graficar.</li>
+  <li><b>Permisos mínimos</b>La Service Account solo tiene <code>BigQuery Job User</code> y el dataset es público y de solo lectura: aunque la barrera 1 fallara, no hay nada que escribir.</li>
+</ol>
+
+<h2>Los datos viajan por el estado, no por el texto</h2>
+<div class="callout">
+  <p><code>consultar_bigquery</code> devuelve un <code>Command(update=…)</code> que guarda el resultado en <code>ultima_consulta</code>. <code>generar_graficos</code> lo lee de <code>runtime.state</code>: el LLM nunca copia números, así que no puede alterarlos.</p>
+  <p>Como el estado se guarda en el checkpointer, “grafícalo” funciona también en el turno siguiente. <code>graficos_turno</code> se reinicia en cada invocación y <code>app.py</code> lo entrega como PNG en base64.</p>
+</div>
+
+<h2>Memoria</h2>
+<p class="lead">Tres middleware, en este orden: resumir antes de descartar gastaría una llamada al LLM en mensajes que están por borrarse. Valores de <code>model_config/model.yaml</code>.</p>
+<div class="grid">
+  <div class="card" style="--k:var(--pur-s)">
+    <h3>① Retención</h3>
+    <div class="big">30 <small>días</small></div>
+    <p><code>descartar_vencidos</code> corta en el primer mensaje humano vigente (sin ToolMessages huérfanos) y conserva el resumen. Lo descartado sigue en <code>chat_log</code>.</p>
+  </div>
+  <div class="card" style="--k:var(--pur-s)">
+    <h3>② Resumen</h3>
+    <div class="big">3 000 <small>tokens</small></div>
+    <p><code>SummarizationMiddleware</code> resume al superar el umbral y conserva los últimos 20 mensajes.</p>
+  </div>
+  <div class="card" style="--k:var(--pur-s)">
+    <h3>③ Prompt del turno</h3>
+    <div class="big">6 <small>horas</small></div>
+    <p><code>dynamic_prompt</code> inyecta fecha y hora (America/Lima) y, si el usuario vuelve tras 6 h, el bloque de retoma. Es transitorio: no se guarda en el historial.</p>
+  </div>
+</div>
+
+<h2>Dónde va cada cambio</h2>
+<div class="tablewrap">
+<table>
+  <thead><tr><th>Cambio</th><th>Archivo (en <code>Backend/</code>)</th></tr></thead>
+  <tbody>
+    <tr><td>Modelo, temperatura, límites de memoria</td><td class="mono">model_config/model.yaml</td></tr>
+    <tr><td>Persona / reglas del agente</td><td class="mono">prompt/system_prompt.yaml</td></tr>
+    <tr><td>Nueva tool</td><td class="mono">tools/&lt;nombre&gt;.py + tools/__init__.py + agent.build_agent() + prompt</td></tr>
+    <tr><td>Conexión a BigQuery</td><td class="mono">BigQuery/conexion.py</td></tr>
+    <tr><td>Validación / ejecución del SQL</td><td class="mono">tools/bigquery.py</td></tr>
+    <tr><td>Qué gráficos elige el subagente</td><td class="mono">prompt/graficos_prompt.yaml + subagentes/graficos/especificacion.py</td></tr>
+    <tr><td>Cómo se dibujan los gráficos</td><td class="mono">subagentes/graficos/renderizado.py</td></tr>
+    <tr><td>Estado compartido entre tools</td><td class="mono">estado.py</td></tr>
+    <tr><td>Esquema de la base (Postgres)</td><td class="mono">migraciones_SQL/</td></tr>
+    <tr><td>Canal de entrada (API)</td><td class="mono">app.py</td></tr>
+    <tr><td>Interfaz de prueba</td><td class="mono">../Frontend/app.py</td></tr>
+  </tbody>
+</table>
+</div>
+
+<footer>Agente Text-to-SQL CitiBike · Ing. Kevin Inofuente Colque · DataPath</footer>
+</div>
+
+<script>
+const SVGNS = "http://www.w3.org/2000/svg";
+const K = {
+  blue: "Instancia", yel: "Configuración", gray: "LLM orquestador", red: "Tools",
+  grn: "Datos", org: "Subagente", pur: "Memoria", person: "Usuario",
+};
+
+// t: líneas en negrita · s: líneas normales · c: líneas de código
+const NODES = [
+  { id: "agent", k: "blue", container: true, x: 400, y: 70, w: 780, h: 710, rx: 70,
+    t: ["Instancia Cloud Run"], s: ["Agente Text-to-SQL · FastAPI"], c: ["Backend/app.py"], top: 26,
+    file: "Backend/app.py", text: "Contenedor del agente. app.py es la capa de I/O: no sabe nada de LLMs, prompts ni vector stores.",
+    list: ["lifespan: verifica variables de entorno y llama a agent.init_resources()", "POST /chat {thread_id, mensaje} → {respuesta, tools_usadas, graficos}", "GET /health", "Registra cada mensaje en chat_log", "Codifica cada PNG en base64"] },
+
+  { id: "user", k: "person", x: 25, y: 290, w: 90, h: 125, t: [], s: [],
+    file: "—", text: "Pregunta en lenguaje natural sobre los viajes de CitiBike NYC.",
+    list: ["¿Cuántos datos hay en la BD?", "¿Cuáles son las 10 rutas más tomadas?", "¿Cómo evolucionaron los viajes mes a mes en 2017?"] },
+  { id: "front", k: "blue", x: 220, y: 240, w: 130, h: 200, rx: 18,
+    t: ["Instancia de", "Cloud Run"], s: ["", "Streamlit", "(frontend en Python)"], c: ["", "Frontend/app.py"], top: 34,
+    file: "Frontend/app.py", text: "Interfaz de prueba. Cliente delgado: solo habla HTTP con el Backend y nunca importa su código.",
+    list: ["Genera un thread_id por conversación (uuid)", "POST /chat con timeout de 180 s", "Muestra respuesta, tools usadas y gráficos", "GET /health para el indicador en línea"] },
+
+  { id: "prompt", k: "yel", x: 630, y: 142, w: 130, h: 48, t: ["Prompt Instruction"], c: ["prompt/*.yaml"],
+    file: "prompt/system_prompt.yaml · prompt/graficos_prompt.yaml", text: "Prompts en YAML con tags estilo XML.",
+    list: ["system_prompt: persona DataBot, reglas y <Esquema_De_Datos> de citibike_trips", "Placeholders {bot_name} y {fecha_hora}", "graficos_prompt: criterio del subagente"] },
+  { id: "config", k: "yel", x: 790, y: 142, w: 130, h: 48, t: ["Model Config"], c: ["model.yaml"],
+    file: "model_config/model.yaml", text: "Config pura, sin código. Se carga una vez en init_resources().",
+    list: ["llm: openai gpt-4.1, temperature 0", "memory: 30 días · 3000 tokens · 20 mensajes · 6 h", "subagentes.graficos: gpt-4.1", "agent: DataBot · America/Lima"] },
+  { id: "llm", k: "gray", x: 640, y: 225, w: 270, h: 92,
+    t: ["LLM (modelo de lenguaje)"], s: ["OpenAI gpt-4.1 · temperatura 0", "Agente Orquestador Text-to-SQL"], c: ["agent.py · create_agent"], top: 22,
+    file: "agent.py · estado.py", text: "Razona, escribe el SQL, decide si graficar y redacta la respuesta. Se reconstruye por mensaje con build_agent().",
+    list: ["Middleware ①: descartar_vencidos (retención 30 días)", "Middleware ②: SummarizationMiddleware (> 3000 tokens, conserva 20)", "Middleware ③: dynamic_prompt (fecha/hora + retoma tras 6 h)", "Estado: messages · ultima_consulta · graficos_turno"] },
+
+  { id: "tools", k: "red", x: 700, y: 365, w: 150, h: 34, t: ["Tools"], top: 22,
+    file: "tools/__init__.py", text: "Las dos tools del orquestador. Ambas devuelven Command(update) para escribir en el estado.",
+    list: ["consultar_bigquery(sql)", "generar_graficos(instruccion)"] },
+  { id: "bq", k: "grn", x: 610, y: 455, w: 160, h: 82,
+    t: ["BigQuery"], s: ["CitiBike NYC", "(59 M de registros)"], c: ["consultar_bigquery"], top: 22,
+    file: "tools/bigquery.py · BigQuery/conexion.py", text: "Valida el SQL con sqlglot y lo ejecuta sobre el dataset público. Nunca lanza: el error vuelve como texto para que el modelo corrija.",
+    list: ["1 sentencia, solo lectura, solo citibike_trips", "maximum_bytes_billed = 2 GB", "Al modelo: hasta 50 filas", "Al estado (ultima_consulta): hasta 500 filas"] },
+  { id: "sa", k: "grn", x: 610, y: 545, w: 160, h: 46, t: ["Service Account (SA)"], s: ["BigQuery Job User"],
+    file: "credentials/*.json (en .gitignore)", text: "Credencial con la que se ejecutan y facturan las consultas.",
+    list: ["Datos: bigquery-public-data (solo lectura)", "Facturación: project_id de la SA", "GOOGLE_APPLICATION_CREDENTIALS en .env"] },
+  { id: "sub", k: "org", x: 860, y: 455, w: 160, h: 82,
+    t: ["SubAgente", "de Gráficos"], s: ["OpenAI gpt-4.1"], c: ["→ PlanGraficos"], top: 22,
+    file: "tools/graficos.py · subagentes/graficos/agente.py", text: "Subagente como tool: decide qué graficar con structured output. No dibuja ni ve la conversación.",
+    list: ["Recibe la instrucción + perfil de datos (columnas, tipos, 15 filas)", "Devuelve 1 o 2 gráficos validados por Pydantic", "barras, barras_horizontales, lineas, area, dispersion, torta, histograma"] },
+  { id: "tools2", k: "red", x: 910, y: 580, w: 150, h: 34, t: ["Tools"], c: [], top: 22,
+    file: "subagentes/graficos/renderizado.py", text: "renderizar(): código determinista que ejecuta el plan del subagente.",
+    list: ["Valida la especificación contra los datos reales", "Columna inexistente o no numérica → se descarta"] },
+  { id: "render", k: "grn", x: 960, y: 648, w: 170, h: 60, t: ["Renderizado y", "Gráfico Generado"], c: ["matplotlib → PNG"], top: 20,
+    file: "graficos_generados/<thread_id>/", text: "PNG dibujado con matplotlib (Agg). Se registra en graficos_turno y app.py lo envía en base64.",
+    list: ["Máx. 20 categorías en barras, 8 porciones en torta", "Nunca completa ni inventa valores"] },
+
+  { id: "hist", k: "pur", x: 440, y: 520, w: 150, h: 50, t: ["Histórico de", "Conversación"], top: 21,
+    stack: [["Tabla plana (chat_log)", "Checkpointers"], ["PostgreSQL"], ["Supabase"]],
+    file: "chat_history/ · migraciones_SQL/001_chat_log.sql", text: "Memoria persistente del agente y log legible con SQL.",
+    list: ["PostgresSaver: estado completo por thread_id (mensajes, tool calls, ultima_consulta)", "chat_log: thread_id, rol, contenido, tools_usadas, creado_en", "Supabase vía pooler, con psycopg_pool", "Tablas verificadas al arrancar"] },
+];
+
+const EDGES = [
+  { id: "e-user-front", d: "M118,355 H220", both: true,
+    lbls: [[168, 322, "¿Cuántos datos"], [168, 335, "hay en la BD?"], [168, 376, "¿Las 10 rutas"], [168, 389, "más tomadas?"]] },
+  { id: "e-front-llm", d: "M350,300 H560 V250 H640", thick: true, lbls: [[455, 290, "POST /chat"]] },
+  { id: "e-llm-front", d: "M640,290 H600 V420 H350", thick: true, lbls: [[432, 412, "respuesta + gráficos"]] },
+  { id: "e-prompt", d: "M695,190 V225" },
+  { id: "e-config", d: "M855,190 V225" },
+  { id: "e-llm-hist", d: "M680,317 V345 H515 V520", both: true, lbls: [[520, 337, "checkpoint", "start"]] },
+  { id: "e-llm-tools", d: "M775,317 V365", thick: true },
+  { id: "e-tools-bq", d: "M775,399 V425 H690 V455" },
+  { id: "e-tools-sub", d: "M775,399 V425 H940 V455" },
+  { id: "e-bq-sub", d: "M770,496 H860", dash: true, lbls: [[815, 488, "vía estado"]] },
+  { id: "e-sub-tools2", d: "M940,537 V560 H985 V580" },
+  { id: "e-tools2-render", d: "M985,614 V630 H1045 V648" },
+];
+
+const STEPS = [
+  { t: "1 · El usuario pregunta", x: "Escribe en Streamlit, p. ej. «¿Cuáles son las 10 rutas más tomadas?». El thread_id identifica la conversación.",
+    n: ["user", "front"], e: ["e-user-front"] },
+  { t: "2 · Petición al agente", x: "Streamlit hace POST /chat a la instancia del agente. app.py guarda la pregunta en chat_log y llama a agent.responder().",
+    n: ["front", "agent", "llm", "hist"], e: ["e-front-llm", "e-llm-hist"] },
+  { t: "3 · Contexto del turno", x: "El checkpointer recarga el historial del hilo. Los middleware aplican retención (30 d), resumen (> 3000 tokens) y el prompt del turno con fecha/hora y retoma.",
+    n: ["prompt", "config", "llm", "hist"], e: ["e-prompt", "e-config", "e-llm-hist"] },
+  { t: "4 · El LLM escribe SQL", x: "gpt-4.1 lee el esquema de citibike_trips del system prompt y llama a la tool consultar_bigquery.",
+    n: ["llm", "tools"], e: ["e-llm-tools"] },
+  { t: "5 · Validar y ejecutar", x: "sqlglot comprueba que sea una sola consulta de lectura sobre citibike_trips. BigQuery la ejecuta con la Service Account y un tope de 2 GB.",
+    n: ["tools", "bq", "sa"], e: ["e-tools-bq"] },
+  { t: "6 · El resultado vuelve", x: "Hasta 500 filas van al estado (ultima_consulta); el LLM recibe un ToolMessage con hasta 50.",
+    n: ["bq", "tools", "llm"], e: ["e-tools-bq", "e-llm-tools"] },
+  { t: "7 · Pedir gráficos", x: "Si hay varias filas comparables, el LLM llama a generar_graficos con una instrucción. Los datos llegan al subagente por el estado, no por el texto.",
+    n: ["llm", "tools", "sub", "bq"], e: ["e-llm-tools", "e-tools-sub", "e-bq-sub"] },
+  { t: "8 · El subagente decide", x: "Con la instrucción y un perfil compacto de los datos, devuelve 1 o 2 especificaciones (PlanGraficos) con structured output.",
+    n: ["sub", "tools2"], e: ["e-sub-tools2"] },
+  { t: "9 · Renderizar", x: "renderizado.py valida cada especificación contra los datos y dibuja con matplotlib. El PNG queda en graficos_generados/<thread_id>/.",
+    n: ["tools2", "render"], e: ["e-tools2-render"] },
+  { t: "10 · Respuesta y checkpoint", x: "El LLM redacta la respuesta citando los gráficos. El checkpointer guarda el estado del hilo y app.py registra la respuesta en chat_log.",
+    n: ["llm", "hist"], e: ["e-llm-hist"] },
+  { t: "11 · De vuelta al usuario", x: "app.py devuelve {respuesta, tools_usadas, graficos[base64]} y Streamlit lo muestra.",
+    n: ["llm", "agent", "front", "user"], e: ["e-llm-front", "e-user-front"] },
+];
+
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(SVGNS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+// ---------- Aristas ----------
+const edgeG = document.getElementById("edges");
+const edgeEls = {}, lblEls = {};
+const markerOf = ed => ed.dash ? "url(#arr-soft)" : "url(#arr)";
+for (const ed of EDGES) {
+  const p = el("path", { d: ed.d, class: "edge" + (ed.thick ? " thick" : "") + (ed.dash ? " dash" : ""), "marker-end": markerOf(ed) }, edgeG);
+  if (ed.both) p.setAttribute("marker-start", markerOf(ed));
+  edgeEls[ed.id] = p;
+  lblEls[ed.id] = (ed.lbls || []).map(([x, y, txt, anchor]) => {
+    const t = el("text", { class: "lbl", x, y, "text-anchor": anchor || "middle" }, edgeG);
+    t.textContent = txt;
+    return t;
+  });
+}
+
+// ---------- Nodos ----------
+const nodeEls = {};
+function textLines(g, n, cx) {
+  let y = n.y + (n.top ?? 22);
+  for (const line of n.t) { el("text", { class: "t", x: cx, y, "text-anchor": "middle" }, g).textContent = line; y += 16; }
+  for (const line of n.s || []) { if (line) el("text", { class: "s", x: cx, y, "text-anchor": "middle" }, g).textContent = line; y += line ? 15 : 8; }
+  for (const line of n.c || []) { if (line) el("text", { class: "s code", x: cx, y, "text-anchor": "middle" }, g).textContent = line; y += line ? 15 : 8; }
+}
+
+for (const n of NODES) {
+  const layer = document.getElementById(n.container ? "back" : "nodes");
+  const g = el("g", { class: `node k-${n.k}` + (n.container ? " container" : ""), tabindex: 0, role: "button", "aria-label": n.t.join(" ") || "Usuario" }, layer);
+  const cx = n.x + n.w / 2;
+  el("rect", { class: "box", x: n.x, y: n.y, width: n.w, height: n.h, rx: n.rx ?? 6 }, g);
+  if (n.k === "person") {
+    el("circle", { class: "body", cx, cy: n.y + 32, r: 26 }, g);
+    el("path", { class: "body", d: `M${n.x + 2},${n.y + n.h} Q${n.x + 2},${n.y + 66} ${cx},${n.y + 63} Q${n.x + n.w - 2},${n.y + 66} ${n.x + n.w - 2},${n.y + n.h} Z` }, g);
+  } else {
+    textLines(g, n, cx);
+  }
+  if (n.stack) {
+    let y = n.y + n.h + 8;
+    for (const item of n.stack) {
+      const h = item.length > 1 ? 40 : 28;
+      el("rect", { class: "box", x: n.x, y, width: n.w, height: h, rx: 4 }, g);
+      item.forEach((line, i) => el("text", { class: "s", x: cx, y: y + 18 + i * 14 - (item.length > 1 ? 1 : 0), "text-anchor": "middle" }, g).textContent = line);
+      y += h + 6;
+    }
+  }
+  g.addEventListener("click", ev => { ev.stopPropagation(); select(n.id); });
+  g.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); select(n.id); } });
+  nodeEls[n.id] = g;
+}
+
+function select(id) {
+  const n = NODES.find(x => x.id === id);
+  for (const [k, g] of Object.entries(nodeEls)) g.classList.toggle("sel", k === id);
+  const tag = document.getElementById("d-tag");
+  tag.textContent = K[n.k];
+  tag.style.background = `var(--${n.k === "person" ? "gray" : n.k}-f)`;
+  tag.style.borderColor = `var(--${n.k === "person" ? "gray" : n.k}-s)`;
+  document.getElementById("d-title").textContent = n.k === "person" ? "Usuario" : n.t.join(" ");
+  document.getElementById("d-file").textContent = n.file;
+  document.getElementById("d-text").textContent = n.text;
+  document.getElementById("d-list").replaceChildren(...n.list.map(t => { const li = document.createElement("li"); li.textContent = t; return li; }));
+}
+
+// ---------- Recorrido ----------
+let step = -1, timer = null;
+const $ = id => document.getElementById(id);
+
+function render() {
+  const on = step >= 0;
+  const s = on ? STEPS[step] : null;
+  for (const [id, g] of Object.entries(nodeEls)) {
+    const act = on && s.n.includes(id);
+    g.classList.toggle("on", act);
+    g.classList.toggle("off", on && !act && id !== "agent");
+  }
+  for (const ed of EDGES) {
+    const act = on && s.e.includes(ed.id);
+    const p = edgeEls[ed.id];
+    p.classList.toggle("on", act);
+    p.classList.toggle("off", on && !act);
+    const m = act ? "url(#arr-on)" : markerOf(ed);
+    p.setAttribute("marker-end", m);
+    if (ed.both) p.setAttribute("marker-start", m);
+    for (const t of lblEls[ed.id]) t.classList.toggle("off", on && !act);
+  }
+  $("s-count").textContent = on ? `${step + 1} / ${STEPS.length}` : `${STEPS.length} pasos`;
+  $("s-bar").style.width = on ? `${((step + 1) / STEPS.length) * 100}%` : "0";
+  $("s-title").textContent = on ? s.t : "Vista completa";
+  $("s-text").textContent = on ? s.x : "Pulsa Reproducir o ▶ para seguir una pregunta desde Streamlit hasta BigQuery, el subagente de gráficos y de vuelta.";
+  if (on) select(s.n[s.n.length - 1]);
+}
+
+function go(i) { step = Math.max(-1, Math.min(STEPS.length - 1, i)); render(); }
+function stop() { clearInterval(timer); timer = null; $("s-play").textContent = "▶ Reproducir"; }
+function play() {
+  if (timer) return stop();
+  if (step >= STEPS.length - 1) step = -1;
+  go(step + 1);
+  $("s-play").textContent = "❚❚ Pausa";
+  timer = setInterval(() => { if (step >= STEPS.length - 1) return stop(); go(step + 1); }, 3400);
+}
+
+$("s-prev").onclick = () => { stop(); go(step - 1); };
+$("s-next").onclick = () => { stop(); go(step + 1); };
+$("s-play").onclick = play;
+$("s-reset").onclick = () => { stop(); go(-1); };
+document.addEventListener("keydown", ev => {
+  if (ev.target.closest && ev.target.closest(".node")) return;
+  if (ev.key === "ArrowRight") { stop(); go(step + 1); }
+  else if (ev.key === "ArrowLeft") { stop(); go(step - 1); }
+  else if (ev.key === "Escape") { stop(); go(-1); }
+});
+
+select("llm");
+render();
+</script>
+</body>
+</html>
